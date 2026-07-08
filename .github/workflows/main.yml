@@ -48,13 +48,15 @@ jobs:
 
       - name: Start SSH tunnel
         run: |
-          nohup ngrok tcp 22 \
-          --domain=staring-gizzard-twisty.ngrok-free.dev \
-          > ngrok.log 2>&1 &
-
+          nohup ngrok tcp 22 > ngrok.log 2>&1 &
+      
           sleep 10
-
+      
+          echo "========== NGROK SSH INFO =========="
           cat ngrok.log
+      
+          echo "========== API TUNNEL INFO =========="
+          curl -s http://127.0.0.1:4040/api/tunnels
 
       - name: Keep VPS alive
         run: |
