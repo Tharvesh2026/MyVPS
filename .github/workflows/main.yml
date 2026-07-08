@@ -1,0 +1,68 @@
+name: Temporary Ubuntu SSH VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install SSH server
+        run: |
+          sudo apt update
+          sudo apt install -y openssh-server
+
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+
+      - name: Create SSH user
+        run: |
+          sudo useradd -m -s /bin/bash tharvesh || true
+
+          echo "tharvesh:200512" | sudo chpasswd
+
+          sudo usermod -aG sudo tharvesh
+
+          sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+          sudo systemctl restart ssh
+
+      - name: Install ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+          | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+
+          echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
+          | sudo tee /etc/apt/sources.list.d/ngrok.list
+
+          sudo apt update
+          sudo apt install -y ngrok
+
+      - name: Configure ngrok
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
+
+      - name: Start SSH tunnel
+        run: |
+          nohup ngrok tcp 22 \
+          --domain=staring-gizzard-twisty.ngrok-free.dev \
+          > ngrok.log 2>&1 &
+
+          sleep 10
+
+          cat ngrok.log
+
+      - name: Keep VPS alive
+        run: |
+          echo "SSH server is running"
+          echo "Username: tharvesh"
+          echo "Use the ngrok TCP endpoint shown above"
+
+          while true
+          do
+            sleep 300
+          done
