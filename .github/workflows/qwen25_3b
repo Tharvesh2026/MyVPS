@@ -1,0 +1,112 @@
+name: Ollama + Open WebUI (ngrok tunnel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep_alive_minutes:
+        description: "How long to keep the tunnel alive (max ~350 for GitHub free runners)"
+        required: false
+        default: "330"
+
+jobs:
+  run-ollama-webui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      # -------------------------------------------------
+      # 1. Install Ollama
+      # -------------------------------------------------
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      # -------------------------------------------------
+      # 2. Start Ollama server (background)
+      # -------------------------------------------------
+      - name: Start Ollama server
+        run: |
+          export OLLAMA_HOST=0.0.0.0:11434
+          nohup ollama serve > ollama.log 2>&1 &
+          sleep 10
+          echo "Ollama server started"
+          curl -s http://127.0.0.1:11434/api/version
+
+      # -------------------------------------------------
+      # 3. Pull the model
+      # -------------------------------------------------
+      - name: Pull qwen2.5:3b
+        run: |
+          ollama pull qwen2.5:3b
+          ollama list
+
+      # -------------------------------------------------
+      # 4. Run Open WebUI (Docker), pointed at Ollama
+      # -------------------------------------------------
+      - name: Start Open WebUI
+        run: |
+          docker run -d \
+            --network host \
+            -e OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+            -v open-webui:/app/backend/data \
+            --name open-webui \
+            --restart always \
+            ghcr.io/open-webui/open-webui:main
+          sleep 15
+          docker ps
+
+      # -------------------------------------------------
+      # 5. Install ngrok
+      # -------------------------------------------------
+      - name: Install ngrok
+        run: |
+          curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xzf ngrok.tgz
+          ./ngrok config add-authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
+
+      # -------------------------------------------------
+      # 6. Start ngrok tunnel -> Open WebUI (port 8080)
+      # -------------------------------------------------
+      - name: Start ngrok tunnel
+        run: |
+          nohup ./ngrok http 8080 --log=stdout > ngrok.log 2>&1 &
+          sleep 8
+          curl -s http://127.0.0.1:4040/api/tunnels
+
+      # -------------------------------------------------
+      # 7. Print public URL to logs + job summary
+      # -------------------------------------------------
+      - name: Show public URL
+        run: |
+          PUBLIC_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['tunnels'][0]['public_url'])")
+          echo "=================================================="
+          echo " TharvAI Web UI is live at: $PUBLIC_URL"
+          echo "=================================================="
+          echo "### TharvAI is live!" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $PUBLIC_URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Model:** qwen2.5:3b" >> $GITHUB_STEP_SUMMARY
+          echo "$PUBLIC_URL" > ngrok_url.txt
+
+      # -------------------------------------------------
+      # 8. Upload the URL as an artifact too (backup access)
+      # -------------------------------------------------
+      - name: Upload ngrok URL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngrok-url
+          path: ngrok_url.txt
+
+      # -------------------------------------------------
+      # 9. Keep the job (and tunnel) alive
+      # -------------------------------------------------
+      - name: Keep alive
+        run: |
+          MINUTES="${{ github.event.inputs.keep_alive_minutes }}"
+          MINUTES="${MINUTES:-330}"
+          echo "Keeping tunnel alive for $MINUTES minutes..."
+          for ((i=0; i<MINUTES; i++)); do
+            sleep 60
+            if (( i % 10 == 0 )); then
+              echo "[$i/$MINUTES min] Still alive..."
+              curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys, json; data=json.load(sys.stdin); print('URL:', data['tunnels'][0]['public_url'])" || echo "ngrok check failed"
+            fi
+          done
