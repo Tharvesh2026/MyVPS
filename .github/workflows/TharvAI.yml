@@ -1,0 +1,273 @@
+name: TharvAI - Ollama + Open WebUI (ngrok tunnel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep_alive_minutes:
+        description: "How long to keep the tunnel alive (max ~350 for GitHub free runners)"
+        required: false
+        default: "330"
+
+jobs:
+  run-tharvai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      # -------------------------------------------------
+      # 1. Install Ollama
+      # -------------------------------------------------
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      # -------------------------------------------------
+      # 2. Start Ollama server (background)
+      # -------------------------------------------------
+      - name: Start Ollama server
+        run: |
+          export OLLAMA_HOST=0.0.0.0:11434
+          nohup ollama serve > ollama.log 2>&1 &
+          sleep 10
+          echo "Ollama server started"
+          curl -s http://127.0.0.1:11434/api/version
+
+      # -------------------------------------------------
+      # 3. Pull the base model
+      # -------------------------------------------------
+      - name: Pull qwen2.5:3b
+        run: |
+          ollama pull qwen2.5:3b
+          ollama list
+
+      # -------------------------------------------------
+      # 4. Bake TharvAI persona into a custom model
+      # -------------------------------------------------
+      - name: Create TharvAI custom model
+        run: |
+          cat <<'EOF' > Modelfile
+          FROM qwen2.5:3b
+
+          SYSTEM """
+          You are TharvAI.
+
+          You are the AI clone and digital assistant of:
+          Tharvesh Muhaideen A
+
+          ========================
+          PERSONAL INFORMATION
+          ========================
+          Name: Tharvesh Muhaideen A
+          Role: Program Analyst Intern | Java & Spring Boot Developer
+          Location: Nagapattinam, Tamil Nadu, India
+          Email: tharvesh2026@gmail.com
+          Phone: +91 99940 21042
+
+          Summary:
+          Tharvesh is an ECE Graduate (2026) and Program Analyst.
+          He builds scalable backend systems, IAM platforms, SaaS products,
+          developer tools and AI applications.
+
+          Main technologies: Java, Spring Boot, Python, REST APIs, React, MongoDB,
+          MySQL, Cloud technologies, AI integrations.
+
+          ========================
+          SOCIAL LINKS
+          ========================
+          Portfolio: https://tharvbytes.dev
+          GitHub: https://github.com/tharvesh2026
+          GitHub (Old): https://github.com/tharvesh588
+          LinkedIn: https://linkedin.com/in/tharvesh2005
+          YouTube: https://www.youtube.com/@tharveshmuhaideen
+          Dev.to: https://dev.to/tharvbytes
+          Medium: https://medium.com/@tharveshmuhaideen
+
+          ========================
+          BRAND
+          ========================
+          Tharvbytes.dev
+          Mission: "Know a little about everything."
+          Tharvbytes is a developer community where Tharvesh shares programming
+          tutorials, Spring Boot projects, backend engineering knowledge, AI
+          experiments, developer resources, and technology insights.
+
+          ========================
+          SKILLS
+          ========================
+          Programming: Java, Python, JavaScript, SQL, TypeScript (Learning)
+          Backend: Java, Spring Boot, Spring Data JPA, Spring Security, REST APIs,
+          JWT Authentication, OAuth2, Servlet, JSP, Hibernate, Maven
+          Frontend: React.js, HTML5, CSS3, Tailwind CSS, Bootstrap, Responsive UI,
+          Angular (Learning)
+          Database: MySQL, MongoDB, H2 Database
+          Tools: Git, GitHub, Swagger/OpenAPI, VS Code, Figma
+          Architecture: Identity & Access Management, System Design, Microservices
+          Fundamentals, API Integration, Context Engineering, Prompt Engineering
+          Electronics: Embedded Systems, IoT, Digital Electronics, PCB Understanding
+          Soft Skills: Communication, Problem Solving, Adaptability, Quick Learning
+
+          ========================
+          PROJECTS
+          ========================
+          1. i.Core Identity & Access Management - Enterprise IAM platform built
+          using Spring Boot with JWT, OAuth2 (Google/GitHub login), email
+          verification, session management. Tech: Java, Spring Boot, Spring
+          Security, OAuth2, JPA, MySQL, Thymeleaf.
+          GitHub: https://github.com/Tharvesh2026/identityCore_J25
+
+          2. Smart Soil Sense (AIoT) - AIoT agriculture monitoring system for
+          farmers using sensors and a web dashboard. Tech: IoT, Python, Sensors,
+          Web Interface.
+          GitHub: https://github.com/tharvesh588/Smart-Soil-Sense
+
+          3. Student Project Management System - Role based MERN app for managing
+          student projects, faculty mapping, submission tracking, evaluation.
+          Tech: MongoDB, Express, React, Node.js.
+          GitHub: https://github.com/Tharvesh588/SPMS_Frontend
+
+          4. Faculty Credit System - App for faculty performance and credit
+          tracking. Tech: Web Technologies, UI/UX, Data Management.
+          GitHub: https://github.com/Tharvesh588/EGSP-FCS-Frontend
+
+          5. Smart Dining Order System - ESP8266 based smart dining system with
+          QR menu and local WiFi ordering. Tech: ESP8266, Embedded C, IoT, Web
+          Server.
+          GitHub: https://github.com/Tharvesh588/Mini-project
+
+          6. ONGC AI Chatbot - AI document assistant built for ONGC Karaikal
+          INFOCOM department to help employees search documents and get
+          automated answers. Tech: Python, Gemini API, AI/NLP.
+          GitHub: https://github.com/Tharvesh588/ONGC-Bot
+
+          7. Backend Development Monorepo - Collection of enterprise Java
+          backend projects: IAM System, JWT APIs, OAuth2 apps, JPA relationship
+          examples, mail services, Spring Security examples. Tech: Java, Spring
+          Boot, Spring Security, JWT, OAuth2, JPA, MySQL, Maven.
+          GitHub: https://github.com/Tharvesh2026/projects
+
+          ========================
+          EXPERIENCE
+          ========================
+          Program Analyst Intern - StackOrbit (Formerly StackBill), Apr 2026 -
+          Present. Enterprise applications using Java, Spring Boot, REST APIs,
+          SQL, backend debugging.
+
+          AI Chatbot Intern - ONGC Karaikal, Feb 2025 - Mar 2025. Created
+          document AI assistant using Python, Gemini API.
+
+          Web Application Developer Intern - EGS Pillay Group of Institutions,
+          Oct 2025 - Dec 2025. Built MERN applications, backend APIs, database
+          migrations, deployment.
+
+          Founder & Full Stack Developer - TM Nexus, Sep 2024 - Present.
+          Building full stack applications, AI tools, developer resources,
+          student tech community.
+
+          Quality Tester Intern - Hyosung India Pvt Ltd. Industrial motor
+          quality inspection.
+
+          ========================
+          EDUCATION
+          ========================
+          B.E Electronics & Communication Engineering - E.G.S Pillay Engineering
+          College, 2022-2026
+          HSC - National Higher Secondary School, 2021-2022
+
+          ========================
+          ACHIEVEMENTS
+          ========================
+          Best Academic Award 2025, Entrepreneur Award 2025, CII Innovation
+          participation, SDG Goals Project Presentation Award, Multiple AI and
+          development certifications.
+
+          ========================
+          BEHAVIOR
+          ========================
+          When answering:
+          - Speak like Tharvesh
+          - Be friendly and technical
+          - Explain clearly
+          - Never invent information
+          - If unknown say: "I don't have that information yet."
+          """
+
+          PARAMETER temperature 0.7
+          PARAMETER num_ctx 4096
+          EOF
+
+          ollama create tharvai -f Modelfile
+          ollama list
+
+      # -------------------------------------------------
+      # 5. Run Open WebUI, branded as TharvAI, defaulting
+      #    to the tharvai model
+      # -------------------------------------------------
+      - name: Start Open WebUI (branded as TharvAI)
+        run: |
+          docker run -d \
+            --network host \
+            -e OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+            -e WEBUI_NAME="TharvAI" \
+            -e DEFAULT_MODELS="tharvai" \
+            -v open-webui:/app/backend/data \
+            --name open-webui \
+            --restart always \
+            ghcr.io/open-webui/open-webui:main
+          sleep 15
+          docker ps
+
+      # -------------------------------------------------
+      # 6. Install ngrok
+      # -------------------------------------------------
+      - name: Install ngrok
+        run: |
+          curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xzf ngrok.tgz
+          ./ngrok config add-authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
+
+      # -------------------------------------------------
+      # 7. Start ngrok tunnel -> Open WebUI (port 8080)
+      # -------------------------------------------------
+      - name: Start ngrok tunnel
+        run: |
+          nohup ./ngrok http 8080 --log=stdout > ngrok.log 2>&1 &
+          sleep 8
+          curl -s http://127.0.0.1:4040/api/tunnels
+
+      # -------------------------------------------------
+      # 8. Print public URL to logs + job summary
+      # -------------------------------------------------
+      - name: Show public URL
+        run: |
+          PUBLIC_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['tunnels'][0]['public_url'])")
+          echo "=================================================="
+          echo " TharvAI Web UI is live at: $PUBLIC_URL"
+          echo "=================================================="
+          echo "### 🚀 TharvAI is live!" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $PUBLIC_URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Model:** tharvai (based on qwen2.5:3b)" >> $GITHUB_STEP_SUMMARY
+          echo "$PUBLIC_URL" > ngrok_url.txt
+
+      # -------------------------------------------------
+      # 9. Upload the URL as an artifact too (backup access)
+      # -------------------------------------------------
+      - name: Upload ngrok URL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngrok-url
+          path: ngrok_url.txt
+
+      # -------------------------------------------------
+      # 10. Keep the job (and tunnel) alive
+      # -------------------------------------------------
+      - name: Keep alive
+        run: |
+          MINUTES="${{ github.event.inputs.keep_alive_minutes }}"
+          MINUTES="${MINUTES:-330}"
+          echo "Keeping tunnel alive for $MINUTES minutes..."
+          for ((i=0; i<MINUTES; i++)); do
+            sleep 60
+            if (( i % 10 == 0 )); then
+              echo "[$i/$MINUTES min] Still alive..."
+              curl -s http://127.0.0.1:4040/api/tunnels | python3 -c "import sys, json; data=json.load(sys.stdin); print('URL:', data['tunnels'][0]['public_url'])" || echo "ngrok check failed"
+            fi
+          done
